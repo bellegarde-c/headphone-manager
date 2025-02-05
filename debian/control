@@ -1,0 +1,19 @@
+Source: headphone-manager
+Section: utils
+Priority: optional
+Maintainer: Cédric Bellegarde <cedric.bellegarde@adishatz.org>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ meson,
+ libglib2.0-dev,
+Standards-Version: 4.6.2
+Homepage: https://github.com/droidian/headphone-manager
+
+Package: headphone-manager
+Architecture: any
+Depends:
+ dbus,
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: Session fingerprint unlocker for Droidian 

@@ -1,0 +1,9 @@
+[Unit]
+Description=Session headphone manager
+
+[Service]
+Type=exec
+ExecStart=@BIN_DIR@/headphone-manager
+
+[Install]
+WantedBy=gnome-session-initialized.target

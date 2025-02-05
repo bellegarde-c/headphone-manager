@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+remove() {
+    systemctl --user --global disable headphone-manager
+}
+
+case "$1" in
+	"remove")
+		remove
+		;;
+esac
