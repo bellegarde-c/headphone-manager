@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="mps">
+  <schema id="org.adishatz.HeadphoneManager" path="/org/adishatz/HeadphoneManager/">
+
+    <key name="restore-sound-level" type="b">
+      <default>true</default>
+      <summary>Restore sound level when headphone is (un)plugged</summary>
+      <description>When headphone is plugged or unplugged, previous sound level is restored.</description>
+    </key>
+
+    <key name="pause-mpris" type="b">
+      <default>true</default>
+      <summary>Play/Pause MPRIS when headphone is (un)plugged</summary>
+      <description>When headphone is plugged or unplugged, MPRIS playback state is updated.</description>
+    </key>
+
+    <key name="launch-player" type="b">
+      <default>false</default>
+      <summary>Launch default audio player when headphone is plugged</summary>
+      <description>When headphone is plugged, default audio player is launched.</description>
+    </key>
+
+  </schema>
+</schemalist>

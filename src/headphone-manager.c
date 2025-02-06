@@ -17,6 +17,7 @@ struct _HeadphoneManagerPrivate {
     Alsa *alsa;
     Events *events;
     Mpris *mpris;
+    GSettings *settings;
 };
 
 G_DEFINE_TYPE_WITH_CODE (
@@ -33,15 +34,20 @@ on_headphone_state_changed (Events *events,
 {
     HeadphoneManager *self = HEADPHONE_MANAGER (user_data);
 
-    alsa_volume_switch (self->priv->alsa);
+    if (g_settings_get_boolean(self->priv->settings, "restore-sound-level"))
+        alsa_volume_switch (self->priv->alsa);
 
-    if (headphone_state) {
+    if (headphone_state &&
+            g_settings_get_boolean(self->priv->settings, "launch-player")) {
         GAppInfo *app_info = g_app_info_get_default_for_type (
             "audio/mp3", FALSE
         );
         if (app_info != NULL)
             g_app_info_launch (app_info, NULL, NULL, NULL);
+    }
 
+    if (headphone_state &&
+            g_settings_get_boolean(self->priv->settings, "pause-mpris")) {
         mpris_play (self->priv->mpris);
     } else {
         mpris_pause (self->priv->mpris);
@@ -82,6 +88,7 @@ headphone_manager_init (HeadphoneManager *self)
     self->priv->alsa = ALSA (alsa_new ());
     self->priv->events = EVENTS (events_new ());
     self->priv->mpris = MPRIS (mpris_new ());
+    self->priv->settings = g_settings_new (APP_ID);
 
     g_signal_connect (
         self->priv->events,
