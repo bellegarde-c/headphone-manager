@@ -16,4 +16,4 @@ Depends:
  dbus,
  ${shlibs:Depends},
  ${misc:Depends},
-Description: Session fingerprint unlocker for Droidian 
+Description: Session headphone manager for Linux

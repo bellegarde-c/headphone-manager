@@ -1,4 +1,4 @@
-# Session headphone manager for Linux
+# Session headphone manager for Droidian
 
 ## Depends on
 
