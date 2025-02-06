@@ -6,6 +6,7 @@ Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),
  meson,
+ libasound2-dev,
  libglib2.0-dev,
 Standards-Version: 4.6.2
 Homepage: https://github.com/droidian/headphone-manager
