@@ -36,6 +36,12 @@ on_headphone_state_changed (Events *events,
     alsa_volume_switch (self->priv->alsa);
 
     if (headphone_state) {
+        GAppInfo *app_info = g_app_info_get_default_for_type (
+            "audio/mp3", FALSE
+        );
+        if (app_info != NULL)
+            g_app_info_launch (app_info, NULL, NULL, NULL);
+
         mpris_play (self->priv->mpris);
     } else {
         mpris_pause (self->priv->mpris);
