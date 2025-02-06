@@ -15,6 +15,7 @@
 
 #include "config.h"
 #include "events.h"
+#include "utils.h"
 
 #define DEV_INPUT_EVENT "/dev/input"
 #define EVENT_DEV_NAME "event"
@@ -24,11 +25,6 @@
 #define OFF(x)  ((x) % BITS_PER_LONG)
 #define LONG(x) ((x) / BITS_PER_LONG)
 #define test_bit(bit, array)	((array[LONG(bit)] >> OFF(bit)) & 1)
-
-#define GFOREACH(list, item) \
-    for(GList *__glist = list; \
-        __glist && (item = __glist->data, TRUE); \
-        __glist = __glist->next)
 
 /* signals */
 enum

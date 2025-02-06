@@ -11,10 +11,12 @@
 #include "alsa.h"
 #include "events.h"
 #include "headphone-manager.h"
+#include "mpris.h"
 
 struct _HeadphoneManagerPrivate {
     Alsa *alsa;
     Events *events;
+    Mpris *mpris;
 };
 
 G_DEFINE_TYPE_WITH_CODE (
@@ -32,6 +34,12 @@ on_headphone_state_changed (Events *events,
     HeadphoneManager *self = HEADPHONE_MANAGER (user_data);
 
     alsa_volume_switch (self->priv->alsa);
+
+    if (headphone_state) {
+        mpris_play (self->priv->mpris);
+    } else {
+        mpris_pause (self->priv->mpris);
+    }
 }
 
 static void
@@ -67,6 +75,7 @@ headphone_manager_init (HeadphoneManager *self)
 
     self->priv->alsa = ALSA (alsa_new ());
     self->priv->events = EVENTS (events_new ());
+    self->priv->mpris = MPRIS (mpris_new ());
 
     g_signal_connect (
         self->priv->events,

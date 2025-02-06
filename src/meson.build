@@ -3,6 +3,7 @@ headphone_manager_sources = [
   'events.c',
   'headphone-manager.c',
   'main.c',
+  'mpris.c'
 ]
 
 headphone_manager_deps = [
