@@ -59,14 +59,17 @@ headphone_manager_dispose (GObject *headphone_manager)
 {
     HeadphoneManager *self = HEADPHONE_MANAGER (headphone_manager);
 
+    g_clear_object (&self->priv->alsa);
+    g_clear_object (&self->priv->mpris);
+    g_clear_object (&self->priv->events);
+    g_clear_object (&self->priv->settings);
+
     G_OBJECT_CLASS (headphone_manager_parent_class)->dispose (headphone_manager);
 }
 
 static void
 headphone_manager_finalize (GObject *headphone_manager)
 {
-    HeadphoneManager *self = HEADPHONE_MANAGER (headphone_manager);
-
     G_OBJECT_CLASS (headphone_manager_parent_class)->finalize (headphone_manager);
 }
 

@@ -56,16 +56,12 @@ volume_switch (Alsa *self)
 static void
 alsa_dispose (GObject *alsa)
 {
-    Alsa *self = ALSA (alsa);
-
     G_OBJECT_CLASS (alsa_parent_class)->dispose (alsa);
 }
 
 static void
 alsa_finalize (GObject *alsa)
 {
-    Alsa *self = ALSA (alsa);
-
     G_OBJECT_CLASS (alsa_parent_class)->finalize (alsa);
 }
 
