@@ -13,11 +13,17 @@
 #include "headphone-manager.h"
 #include "mpris.h"
 
+#define DBUS_MPS_NAME                "org.adishatz.Mps"
+#define DBUS_MPS_PATH                "/org/adishatz/Mps"
+#define DBUS_MPS_INTERFACE           "org.adishatz.Mps"
+
 struct _HeadphoneManagerPrivate {
     Alsa *alsa;
     Events *events;
     Mpris *mpris;
     GSettings *settings;
+
+    GDBusProxy *mps_proxy;
 };
 
 G_DEFINE_TYPE_WITH_CODE (
@@ -33,6 +39,16 @@ on_headphone_state_changed (Events *events,
                             gpointer  user_data)
 {
     HeadphoneManager *self = HEADPHONE_MANAGER (user_data);
+
+    g_dbus_proxy_call_sync (
+        self->priv->mps_proxy,
+        "StopDozing",
+        NULL,
+        G_DBUS_CALL_FLAGS_NONE,
+        -1,
+        NULL,
+        NULL
+    );
 
     if (g_settings_get_boolean(self->priv->settings, "restore-sound-level"))
         alsa_volume_switch (self->priv->alsa);
@@ -63,6 +79,7 @@ headphone_manager_dispose (GObject *headphone_manager)
     g_clear_object (&self->priv->mpris);
     g_clear_object (&self->priv->events);
     g_clear_object (&self->priv->settings);
+    g_clear_object (&self->priv->mps_proxy);
 
     G_OBJECT_CLASS (headphone_manager_parent_class)->dispose (headphone_manager);
 }
@@ -92,6 +109,17 @@ headphone_manager_init (HeadphoneManager *self)
     self->priv->events = EVENTS (events_new ());
     self->priv->mpris = MPRIS (mpris_new ());
     self->priv->settings = g_settings_new (APP_ID);
+
+    self->priv->mps_proxy = g_dbus_proxy_new_for_bus_sync (
+        G_BUS_TYPE_SYSTEM,
+        0,
+        NULL,
+        DBUS_MPS_NAME,
+        DBUS_MPS_PATH,
+        DBUS_MPS_INTERFACE,
+        NULL,
+        NULL
+    );
 
     g_signal_connect (
         self->priv->events,
