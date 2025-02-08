@@ -46,6 +46,8 @@ GType       mpris_get_type       (void) G_GNUC_CONST;
 GObject*    mpris_new            (void);
 void        mpris_play           (Mpris *self);
 void        mpris_pause          (Mpris *self);
+void        mpris_queue_play     (Mpris      *self,
+                                  const char *app_id);
 
 G_END_DECLS
 

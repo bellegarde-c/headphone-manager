@@ -58,8 +58,12 @@ on_headphone_state_changed (Events *events,
         GAppInfo *app_info = g_app_info_get_default_for_type (
             "audio/mp3", FALSE
         );
-        if (app_info != NULL)
+        if (app_info != NULL) {
+            const char *app_id = g_app_info_get_id (app_info);
+
+            mpris_queue_play (self->priv->mpris, app_id);
             g_app_info_launch (app_info, NULL, NULL, NULL);
+        }
     }
 
     if (headphone_state &&
