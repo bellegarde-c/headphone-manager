@@ -103,6 +103,9 @@ add_player (Mpris      *self,
 
     self->priv->players = g_list_append (self->priv->players, player);
 
+    if (self->priv->queue == NULL)
+        return;
+
     if (g_strrstr (self->priv->queue, desktop_id) != NULL) {
         player->was_playing = TRUE;
         mpris_play (self);
