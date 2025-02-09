@@ -53,23 +53,34 @@ launch_default_player (HeadphoneManager *self)
 }
 
 static void
+handle_mpris (HeadphoneManager *self,
+              gboolean          connected)
+{
+    if (g_settings_get_boolean(self->priv->settings, "pause-mpris")) {
+        if (connected) {
+            if (!mpris_play (self->priv->mpris))
+                launch_default_player (self);
+        } else {
+            mpris_pause (self->priv->mpris);
+        }
+    } else {
+        launch_default_player (self);
+    }
+}
+
+static void
 on_audio_device_connected (Bluetooth *bluetooth,
                            gboolean   connected,
                            gpointer   user_data)
 {
     HeadphoneManager *self = HEADPHONE_MANAGER (user_data);
 
-    if (connected) {
-        if (!mpris_play (self->priv->mpris))
-            launch_default_player (self);
-    } else {
-        mpris_pause (self->priv->mpris);
-    }
+    handle_mpris (self, connected);
 }
 
 static void
 on_headphone_state_changed (Events *events,
-                            gboolean  headphone_state,
+                            gboolean  connected,
                             gpointer  user_data)
 {
     HeadphoneManager *self = HEADPHONE_MANAGER (user_data);
@@ -87,17 +98,7 @@ on_headphone_state_changed (Events *events,
     if (g_settings_get_boolean(self->priv->settings, "restore-sound-level"))
         alsa_volume_switch (self->priv->alsa);
 
-    if (headphone_state) {
-        launch_default_player (self);
-    }
-
-    if (g_settings_get_boolean(self->priv->settings, "pause-mpris")) {
-        if (headphone_state) {
-            mpris_play (self->priv->mpris);
-        } else {
-            mpris_pause (self->priv->mpris);
-        }
-    }
+    handle_mpris (self, connected);
 }
 
 static void
