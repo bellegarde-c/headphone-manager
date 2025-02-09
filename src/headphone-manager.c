@@ -9,6 +9,7 @@
 
 #include "config.h"
 #include "alsa.h"
+#include "bluetooth.h"
 #include "events.h"
 #include "headphone-manager.h"
 #include "mpris.h"
@@ -19,6 +20,7 @@
 
 struct _HeadphoneManagerPrivate {
     Alsa *alsa;
+    Bluetooth *bluetooth;
     Events *events;
     Mpris *mpris;
     GSettings *settings;
@@ -32,6 +34,32 @@ G_DEFINE_TYPE_WITH_CODE (
     G_TYPE_OBJECT,
     G_ADD_PRIVATE (HeadphoneManager)
 )
+
+
+static void
+launch_default_player (HeadphoneManager *self)
+{
+    if (g_settings_get_boolean(self->priv->settings, "launch-player")) {
+        GAppInfo *app_info = g_app_info_get_default_for_type (
+            "audio/mp3", FALSE
+        );
+        if (app_info != NULL) {
+            const char *app_id = g_app_info_get_id (app_info);
+
+            mpris_queue_play (self->priv->mpris, app_id);
+            g_app_info_launch (app_info, NULL, NULL, NULL);
+        }
+    }
+}
+
+static void
+on_audio_device_connected (Bluetooth *bluetooth,
+                           gpointer   user_data)
+{
+    HeadphoneManager *self = HEADPHONE_MANAGER (user_data);
+
+    launch_default_player (self);
+}
 
 static void
 on_headphone_state_changed (Events *events,
@@ -53,24 +81,16 @@ on_headphone_state_changed (Events *events,
     if (g_settings_get_boolean(self->priv->settings, "restore-sound-level"))
         alsa_volume_switch (self->priv->alsa);
 
-    if (headphone_state &&
-            g_settings_get_boolean(self->priv->settings, "launch-player")) {
-        GAppInfo *app_info = g_app_info_get_default_for_type (
-            "audio/mp3", FALSE
-        );
-        if (app_info != NULL) {
-            const char *app_id = g_app_info_get_id (app_info);
-
-            mpris_queue_play (self->priv->mpris, app_id);
-            g_app_info_launch (app_info, NULL, NULL, NULL);
-        }
+    if (headphone_state) {
+        launch_default_player (self);
     }
 
-    if (headphone_state &&
-            g_settings_get_boolean(self->priv->settings, "pause-mpris")) {
-        mpris_play (self->priv->mpris);
-    } else {
-        mpris_pause (self->priv->mpris);
+    if (g_settings_get_boolean(self->priv->settings, "pause-mpris")) {
+        if (headphone_state) {
+            mpris_play (self->priv->mpris);
+        } else {
+            mpris_pause (self->priv->mpris);
+        }
     }
 }
 
@@ -80,6 +100,7 @@ headphone_manager_dispose (GObject *headphone_manager)
     HeadphoneManager *self = HEADPHONE_MANAGER (headphone_manager);
 
     g_clear_object (&self->priv->alsa);
+    g_clear_object (&self->priv->bluetooth);
     g_clear_object (&self->priv->mpris);
     g_clear_object (&self->priv->events);
     g_clear_object (&self->priv->settings);
@@ -110,6 +131,7 @@ headphone_manager_init (HeadphoneManager *self)
     self->priv = headphone_manager_get_instance_private (self);
 
     self->priv->alsa = ALSA (alsa_new ());
+    self->priv->bluetooth = BLUETOOTH (bluetooth_new ());
     self->priv->events = EVENTS (events_new ());
     self->priv->mpris = MPRIS (mpris_new ());
     self->priv->settings = g_settings_new (APP_ID);
@@ -123,6 +145,13 @@ headphone_manager_init (HeadphoneManager *self)
         DBUS_MPS_INTERFACE,
         NULL,
         NULL
+    );
+
+    g_signal_connect (
+        self->priv->bluetooth,
+        "audio-device-connected",
+        G_CALLBACK (on_audio_device_connected),
+        self
     );
 
     g_signal_connect (

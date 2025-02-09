@@ -1,5 +1,6 @@
 headphone_manager_sources = [
   'alsa.c',
+  'bluetooth.c',
   'events.c',
   'headphone-manager.c',
   'main.c',
