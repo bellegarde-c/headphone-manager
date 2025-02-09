@@ -326,8 +326,9 @@ mpris_new (void)
  *
  * @self: a #Mpris
  *
+ * Returns: TRUE if something started playing
  **/
-void
+gboolean
 mpris_play (Mpris *self)
 {
     struct Player *player;
@@ -344,8 +345,10 @@ mpris_play (Mpris *self)
                 NULL,
                 NULL
             );
+            return TRUE;
         }
     }
+    return FALSE;
 }
 
 /**
@@ -355,11 +358,12 @@ mpris_play (Mpris *self)
  *
  * @self: a #Mpris
  *
+ * Returns: TRUE if something has been paused
  **/
-void
+gboolean
 mpris_pause (Mpris *self)
 {
-        struct Player *player;
+    struct Player *player;
 
     GFOREACH (self->priv->players, player) {
         GVariant *value;
@@ -387,8 +391,11 @@ mpris_pause (Mpris *self)
                 NULL,
                 NULL
             );
+            return TRUE;
         }
     }
+
+    return FALSE;
 }
 
 /**

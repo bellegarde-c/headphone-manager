@@ -54,11 +54,17 @@ launch_default_player (HeadphoneManager *self)
 
 static void
 on_audio_device_connected (Bluetooth *bluetooth,
+                           gboolean   connected,
                            gpointer   user_data)
 {
     HeadphoneManager *self = HEADPHONE_MANAGER (user_data);
 
-    launch_default_player (self);
+    if (connected) {
+        if (!mpris_play (self->priv->mpris))
+            launch_default_player (self);
+    } else {
+        mpris_pause (self->priv->mpris);
+    }
 }
 
 static void

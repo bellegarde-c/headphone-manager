@@ -68,7 +68,8 @@ check_existing_connections (Bluetooth *self)
 
 static void
 check_for_audio_device (Bluetooth  *self,
-                        GDBusProxy *proxy)
+                        GDBusProxy *proxy,
+                        gboolean    connected)
 {
     g_autoptr (GVariant) value = NULL;
     const char *path = g_dbus_proxy_get_object_path (proxy);
@@ -86,7 +87,7 @@ check_for_audio_device (Bluetooth  *self,
             self,
             signals[AUDIO_DEVICE_CONNECTED],
             0,
-            FALSE
+            connected
         );
     }
 }
@@ -180,9 +181,7 @@ on_bluez_proxy_properties (GDBusProxy  *proxy,
         } else if (g_strcmp0 (property, "Connected") == 0) {
             gboolean connected = g_variant_get_boolean (value);
 
-            if (connected) {
-                check_for_audio_device (self, proxy);
-            }
+            check_for_audio_device (self, proxy, connected);
         }
         g_variant_unref (value);
     }
@@ -230,7 +229,8 @@ bluetooth_class_init (BluetoothClass *klass)
         0,
         NULL, NULL, NULL,
         G_TYPE_NONE,
-        0
+        1,
+        G_TYPE_BOOLEAN
     );
 }
 
