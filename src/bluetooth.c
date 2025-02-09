@@ -192,9 +192,14 @@ static void
 bluetooth_dispose (GObject *bluetooth)
 {
     Bluetooth *self = BLUETOOTH (bluetooth);
+    GDBusProxy *connection;
 
     g_clear_object (&self->priv->object_manager);
     g_clear_object (&self->priv->bluez_proxy);
+
+    GFOREACH (self->priv->connections, connection) {
+        g_clear_object (&connection);
+    }
 
     G_OBJECT_CLASS (bluetooth_parent_class)->dispose (bluetooth);
 }
@@ -202,6 +207,10 @@ bluetooth_dispose (GObject *bluetooth)
 static void
 bluetooth_finalize (GObject *bluetooth)
 {
+    Bluetooth *self = BLUETOOTH (bluetooth);
+
+    g_list_free (self->priv->connections);
+
     G_OBJECT_CLASS (bluetooth_parent_class)->finalize (bluetooth);
 }
 
