@@ -81,6 +81,7 @@ check_for_audio_device (Bluetooth  *self,
 
     icon_name = g_variant_get_string (value, NULL);
 
+    g_warning("icon: %s", icon_name);
     if (g_strcmp0 (icon_name, "audio-headset")) {
         g_message ("Connected audio device: %s -> %b", path, connected);
         g_signal_emit(
