@@ -70,7 +70,7 @@ clear_player (struct Player *player)
 
 static void
 add_player (Mpris      *self,
-            GDBusProxy *mpris_bus;
+            GDBusProxy *mpris_bus,
             const char *name,
             const char *desktop_id)
 {
