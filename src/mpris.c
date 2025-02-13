@@ -19,10 +19,12 @@
 #define DBUS_MPRIS_PREFIX               "org.mpris.MediaPlayer2."
 
 struct Player {
-    GDBusProxy *bus;
+    GDBusProxy *mpris_bus;
+    GDBusProxy *player_bus;
     char       *name;
     char       *desktop_id;
     gboolean    was_playing;
+    gboolean    launched;
 };
 
 struct _MprisPrivate {
@@ -37,7 +39,8 @@ G_DEFINE_TYPE_WITH_CODE (Mpris, mpris, G_TYPE_OBJECT,
     G_ADD_PRIVATE (Mpris))
 
 static struct Player *
-get_player (GDBusProxy *bus,
+get_player (GDBusProxy *mpris_bus,
+            GDBusProxy *player_bus,
             const char *name,
             const char *desktop_id,
             gboolean    was_playing)
@@ -45,10 +48,12 @@ get_player (GDBusProxy *bus,
     struct Player *player;
 
     player = g_malloc (sizeof (struct Player));
-    player->bus = bus;
+    player->mpris_bus = mpris_bus;
+    player->player_bus = player_bus;
     player->name = g_strdup (name);
     player->desktop_id = g_strdup (desktop_id);
     player->was_playing = was_playing;
+    player->launched = FALSE;
 
     return player;
 }
@@ -56,7 +61,8 @@ get_player (GDBusProxy *bus,
 static void
 clear_player (struct Player *player)
 {
-    g_clear_object (&player->bus);
+    g_clear_object (&player->mpris_bus);
+    g_clear_object (&player->player_bus);
     g_free (player->name);
     g_free (player->desktop_id);
     g_free (player);
@@ -64,6 +70,7 @@ clear_player (struct Player *player)
 
 static void
 add_player (Mpris      *self,
+            GDBusProxy *mpris_bus,
             const char *name,
             const char *desktop_id)
 {
@@ -99,7 +106,7 @@ add_player (Mpris      *self,
     was_playing = g_strcmp0 (g_variant_get_string (value, NULL), "Playing") == 0;
     g_variant_unref (value);
 
-    player = get_player (player_bus, name, desktop_id, was_playing);
+    player = get_player (mpris_bus, player_bus, name, desktop_id, was_playing);
 
     self->priv->players = g_list_append (self->priv->players, player);
 
@@ -111,6 +118,7 @@ add_player (Mpris      *self,
         mpris_play (self);
         g_free (self->priv->queue);
         self->priv->queue = NULL;
+        player->launched = TRUE;
     }
 }
 
@@ -140,14 +148,14 @@ static void
 add_player_if_desktop_entry (Mpris      *self,
                              const char *name)
 {
-    g_autoptr (GDBusProxy) player = NULL;
+    g_autoptr (GDBusProxy) mpris_bus = NULL;
     g_autoptr (GVariant) desktop_entry = NULL;
     const char *desktop_id = NULL;
 
     if (!g_str_has_prefix (name, DBUS_MPRIS_PREFIX))
         return;
 
-    player = g_dbus_proxy_new_for_bus_sync (
+    mpris_bus = g_dbus_proxy_new_for_bus_sync (
         G_BUS_TYPE_SESSION,
         0,
         NULL,
@@ -158,21 +166,21 @@ add_player_if_desktop_entry (Mpris      *self,
         NULL
     );
 
-    g_return_if_fail (player != NULL);
+    g_return_if_fail (mpris_bus != NULL);
 
-    desktop_entry = g_dbus_proxy_get_cached_property (player, "DesktopEntry");
+    desktop_entry = g_dbus_proxy_get_cached_property (mpris_bus, "DesktopEntry");
     if (desktop_entry != NULL) {
         desktop_id = g_variant_get_string (desktop_entry, NULL);
         if (desktop_id != NULL && strlen (desktop_id) > 0)
-            add_player (self, name, desktop_id);
+            add_player (self, g_steal_pointer (&mpris_bus), name, desktop_id);
         return;
     }
 
-    desktop_entry = g_dbus_proxy_get_cached_property (player, "Identity");
+    desktop_entry = g_dbus_proxy_get_cached_property (mpris_bus, "Identity");
     if (desktop_entry != NULL) {
         desktop_id = g_variant_get_string (desktop_entry, NULL);
         if (desktop_id != NULL && strlen (desktop_id) > 0)
-            add_player (self, name, desktop_id);
+            add_player (self, g_steal_pointer (&mpris_bus), name, desktop_id);
     }
 }
 
@@ -336,7 +344,7 @@ mpris_play (Mpris *self)
     GFOREACH (self->priv->players, player) {
         if (player->was_playing) {
              g_dbus_proxy_call (
-                player->bus,
+                player->player_bus,
                 "Play",
                 NULL,
                 G_DBUS_CALL_FLAGS_NONE,
@@ -369,7 +377,7 @@ mpris_pause (Mpris *self)
         GVariant *value;
 
         value = g_dbus_proxy_get_cached_property (
-            player->bus, "PlaybackStatus"
+            player->player_bus, "PlaybackStatus"
         );
 
         if (value == NULL)
@@ -382,7 +390,7 @@ mpris_pause (Mpris *self)
 
         if (player->was_playing) {
              g_dbus_proxy_call (
-                player->bus,
+                player->player_bus,
                 "Pause",
                 NULL,
                 G_DBUS_CALL_FLAGS_NONE,
@@ -414,4 +422,34 @@ mpris_queue_play (Mpris      *self,
         g_free (self->priv->queue);
 
     self->priv->queue = g_strdup (app_id);
+}
+
+/**
+ * mpris_quit:
+ *
+ * Quit launched players
+ *
+ * @self: a #Mpris
+ *
+ **/
+void
+mpris_quit (Mpris      *self)
+{
+    struct Player *player;
+
+    GFOREACH (self->priv->players, player) {
+        if (!player->launched)
+            continue;
+
+        g_dbus_proxy_call (
+            player->mpris_bus,
+            "Quit",
+            NULL,
+            G_DBUS_CALL_FLAGS_NONE,
+            -1,
+            NULL,
+            NULL,
+            NULL
+        );
+    }
 }

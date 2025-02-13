@@ -61,6 +61,7 @@ handle_mpris (HeadphoneManager *self,
             if (!mpris_play (self->priv->mpris))
                 launch_default_player (self);
         } else {
+            mpris_quit (self->priv->mpris);
             mpris_pause (self->priv->mpris);
         }
     } else {
