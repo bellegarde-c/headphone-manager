@@ -23,6 +23,7 @@ struct Player {
     char       *name;
     char       *desktop_id;
     gboolean    was_playing;
+    gboolean    launched;
 };
 
 struct _MprisPrivate {
@@ -49,6 +50,7 @@ get_player (GDBusProxy *bus,
     player->name = g_strdup (name);
     player->desktop_id = g_strdup (desktop_id);
     player->was_playing = was_playing;
+    player->launched = FALSE;
 
     return player;
 }
@@ -111,6 +113,7 @@ add_player (Mpris      *self,
         mpris_play (self);
         g_free (self->priv->queue);
         self->priv->queue = NULL;
+        player->launched = TRUE;
     }
 }
 
@@ -414,4 +417,31 @@ mpris_queue_play (Mpris      *self,
         g_free (self->priv->queue);
 
     self->priv->queue = g_strdup (app_id);
+}
+
+/**
+ * mpris_quit:
+ *
+ * Quit launched players
+ *
+ * @self: a #Mpris
+ *
+ **/
+void
+mpris_quit (Mpris      *self)
+{
+    GFOREACH (self->priv->players, player) {
+        if (!player->launched)
+            continue;
+        g_dbus_proxy_call (
+            player->bus,
+            "Quit",
+            NULL,
+            G_DBUS_CALL_FLAGS_NONE,
+            -1,
+            NULL,
+            NULL,
+            NULL
+        );
+    }
 }

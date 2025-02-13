@@ -44,11 +44,11 @@ struct _MprisClass {
 GType       mpris_get_type       (void) G_GNUC_CONST;
 
 GObject*    mpris_new            (void);
-gboolean    mpris_play           (Mpris *self);
-gboolean    mpris_pause          (Mpris *self);
+gboolean    mpris_play           (Mpris      *self);
+gboolean    mpris_pause          (Mpris      *self);
 void        mpris_queue_play     (Mpris      *self,
                                   const char *app_id);
-
+void        mpris_quit           (Mpris      *self);
 G_END_DECLS
 
 #endif
