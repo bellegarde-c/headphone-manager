@@ -148,14 +148,14 @@ static void
 add_player_if_desktop_entry (Mpris      *self,
                              const char *name)
 {
-    g_autoptr (GDBusProxy) player = NULL;
+    g_autoptr (GDBusProxy) mpris_bus = NULL;
     g_autoptr (GVariant) desktop_entry = NULL;
     const char *desktop_id = NULL;
 
     if (!g_str_has_prefix (name, DBUS_MPRIS_PREFIX))
         return;
 
-    player = g_dbus_proxy_new_for_bus_sync (
+    mpris_bus = g_dbus_proxy_new_for_bus_sync (
         G_BUS_TYPE_SESSION,
         0,
         NULL,
@@ -166,9 +166,9 @@ add_player_if_desktop_entry (Mpris      *self,
         NULL
     );
 
-    g_return_if_fail (player != NULL);
+    g_return_if_fail (mpris_bus != NULL);
 
-    desktop_entry = g_dbus_proxy_get_cached_property (player, "DesktopEntry");
+    desktop_entry = g_dbus_proxy_get_cached_property (mpris_bus, "DesktopEntry");
     if (desktop_entry != NULL) {
         desktop_id = g_variant_get_string (desktop_entry, NULL);
         if (desktop_id != NULL && strlen (desktop_id) > 0)
@@ -176,7 +176,7 @@ add_player_if_desktop_entry (Mpris      *self,
         return;
     }
 
-    desktop_entry = g_dbus_proxy_get_cached_property (player, "Identity");
+    desktop_entry = g_dbus_proxy_get_cached_property (mpris_bus, "Identity");
     if (desktop_entry != NULL) {
         desktop_id = g_variant_get_string (desktop_entry, NULL);
         if (desktop_id != NULL && strlen (desktop_id) > 0)
