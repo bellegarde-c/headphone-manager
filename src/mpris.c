@@ -19,7 +19,8 @@
 #define DBUS_MPRIS_PREFIX               "org.mpris.MediaPlayer2."
 
 struct Player {
-    GDBusProxy *bus;
+    GDBusProxy *mpris_bus;
+    GDBusProxy *player_bus;
     char       *name;
     char       *desktop_id;
     gboolean    was_playing;
@@ -38,7 +39,8 @@ G_DEFINE_TYPE_WITH_CODE (Mpris, mpris, G_TYPE_OBJECT,
     G_ADD_PRIVATE (Mpris))
 
 static struct Player *
-get_player (GDBusProxy *bus,
+get_player (GDBusProxy *mpris_bus,
+            GDBusProxy *player_bus,
             const char *name,
             const char *desktop_id,
             gboolean    was_playing)
@@ -46,7 +48,8 @@ get_player (GDBusProxy *bus,
     struct Player *player;
 
     player = g_malloc (sizeof (struct Player));
-    player->bus = bus;
+    player->mpris_bus = mpris_bus;
+    player->player_bus = player_bus;
     player->name = g_strdup (name);
     player->desktop_id = g_strdup (desktop_id);
     player->was_playing = was_playing;
@@ -58,7 +61,8 @@ get_player (GDBusProxy *bus,
 static void
 clear_player (struct Player *player)
 {
-    g_clear_object (&player->bus);
+    g_clear_object (&player->mpris_bus);
+    g_clear_object (&player->player_bus);
     g_free (player->name);
     g_free (player->desktop_id);
     g_free (player);
@@ -66,6 +70,7 @@ clear_player (struct Player *player)
 
 static void
 add_player (Mpris      *self,
+            GDBusProxy *mpris_bus;
             const char *name,
             const char *desktop_id)
 {
@@ -101,7 +106,7 @@ add_player (Mpris      *self,
     was_playing = g_strcmp0 (g_variant_get_string (value, NULL), "Playing") == 0;
     g_variant_unref (value);
 
-    player = get_player (player_bus, name, desktop_id, was_playing);
+    player = get_player (mpris_bus, player_bus, name, desktop_id, was_playing);
 
     self->priv->players = g_list_append (self->priv->players, player);
 
@@ -167,7 +172,7 @@ add_player_if_desktop_entry (Mpris      *self,
     if (desktop_entry != NULL) {
         desktop_id = g_variant_get_string (desktop_entry, NULL);
         if (desktop_id != NULL && strlen (desktop_id) > 0)
-            add_player (self, name, desktop_id);
+            add_player (self, g_steal_pointer (&mpris_bus), name, desktop_id);
         return;
     }
 
@@ -175,7 +180,7 @@ add_player_if_desktop_entry (Mpris      *self,
     if (desktop_entry != NULL) {
         desktop_id = g_variant_get_string (desktop_entry, NULL);
         if (desktop_id != NULL && strlen (desktop_id) > 0)
-            add_player (self, name, desktop_id);
+            add_player (self, g_steal_pointer (&mpris_bus), name, desktop_id);
     }
 }
 
@@ -433,10 +438,13 @@ mpris_quit (Mpris      *self)
     struct Player *player;
 
     GFOREACH (self->priv->players, player) {
+        GDBusProxy *mpris_bus;
+
         if (!player->launched)
             continue;
+
         g_dbus_proxy_call (
-            player->bus,
+            mpris_bus,
             "Quit",
             NULL,
             G_DBUS_CALL_FLAGS_NONE,
