@@ -344,7 +344,7 @@ mpris_play (Mpris *self)
     GFOREACH (self->priv->players, player) {
         if (player->was_playing) {
              g_dbus_proxy_call (
-                player->bus,
+                player->player_bus,
                 "Play",
                 NULL,
                 G_DBUS_CALL_FLAGS_NONE,
@@ -377,7 +377,7 @@ mpris_pause (Mpris *self)
         GVariant *value;
 
         value = g_dbus_proxy_get_cached_property (
-            player->bus, "PlaybackStatus"
+            player->player_bus, "PlaybackStatus"
         );
 
         if (value == NULL)
@@ -390,7 +390,7 @@ mpris_pause (Mpris *self)
 
         if (player->was_playing) {
              g_dbus_proxy_call (
-                player->bus,
+                player->player_bus,
                 "Pause",
                 NULL,
                 G_DBUS_CALL_FLAGS_NONE,
@@ -438,13 +438,11 @@ mpris_quit (Mpris      *self)
     struct Player *player;
 
     GFOREACH (self->priv->players, player) {
-        GDBusProxy *mpris_bus;
-
         if (!player->launched)
             continue;
 
         g_dbus_proxy_call (
-            mpris_bus,
+            player->mpris_bus,
             "Quit",
             NULL,
             G_DBUS_CALL_FLAGS_NONE,
