@@ -430,7 +430,7 @@ mpris_queue_play (Mpris      *self,
 void
 mpris_quit (Mpris      *self)
 {
-    Player *player;
+    struct Player *player;
 
     GFOREACH (self->priv->players, player) {
         if (!player->launched)
