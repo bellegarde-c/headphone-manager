@@ -282,6 +282,8 @@ mpris_class_init (MprisClass *klass)
 static void
 mpris_init (Mpris *self)
 {
+    g_autoptr (GError) error = NULL;
+
     self->priv = mpris_get_instance_private (self);
     self->priv->queue = NULL;
 
@@ -293,8 +295,13 @@ mpris_init (Mpris *self)
         DBUS_FREEDESKTOP_PATH,
         DBUS_FREEDESKTOP_INTERFACE,
         NULL,
-        NULL
+        &error
     );
+
+    if (error != NULL) {
+        g_warning ("Cant connect to MPRIS: %s", error->message);
+        return;
+    }
 
     add_players (self);
 
