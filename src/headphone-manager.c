@@ -103,6 +103,20 @@ on_headphone_state_changed (Events *events,
 }
 
 static void
+on_media_key_pressed (Events *events,
+                            gboolean  connected,
+                            gpointer  user_data)
+{
+    HeadphoneManager *self = HEADPHONE_MANAGER (user_data);
+
+    if (mpris_is_playing (self->priv->mpris)) {
+        mpris_pause (self->priv->mpris);
+    } else {
+        mpris_play (self->priv->mpris);
+    }
+}
+
+static void
 headphone_manager_dispose (GObject *headphone_manager)
 {
     HeadphoneManager *self = HEADPHONE_MANAGER (headphone_manager);
@@ -166,6 +180,13 @@ headphone_manager_init (HeadphoneManager *self)
         self->priv->events,
         "headphone-state-changed",
         G_CALLBACK (on_headphone_state_changed),
+        self
+    );
+
+    g_signal_connect (
+        self->priv->events,
+        "media-key-pressed",
+        G_CALLBACK (on_media_key_pressed),
         self
     );
 }

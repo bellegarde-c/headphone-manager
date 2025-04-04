@@ -460,3 +460,41 @@ mpris_quit (Mpris      *self)
         );
     }
 }
+
+/**
+ * mpris_quit:
+ *
+ * Quit launched players
+ *
+ * @self: a #Mpris
+ *
+ * Returns: TRUE if something is playing
+ **/
+gboolean
+mpris_is_playing (Mpris *self)
+{
+    struct Player *player;
+
+    GFOREACH (self->priv->players, player) {
+        GVariant *value;
+        gboolean is_playing;
+
+        value = g_dbus_proxy_get_cached_property (
+            player->player_bus, "PlaybackStatus"
+        );
+
+        if (value == NULL)
+            continue;
+
+        is_playing = g_strcmp0 (
+            g_variant_get_string (value, NULL), "Playing"
+        ) == 0;
+        g_variant_unref (value);
+
+        if (is_playing) {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}

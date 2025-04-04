@@ -30,6 +30,7 @@
 enum
 {
     HEADPHONE_STATE_CHANGED,
+    MEDIA_KEY_PRESSED,
     LAST_SIGNAL
 };
 
@@ -82,6 +83,20 @@ headphone_absent (gpointer user_data)
     return FALSE;
 }
 
+static gboolean
+key_pressed (gpointer user_data)
+{
+    Events *self = EVENTS (user_data);
+
+    g_signal_emit(
+        self,
+        signals[MEDIA_KEY_PRESSED],
+        0
+    );
+
+    return FALSE;
+}
+
 static gpointer
 handle_events (gpointer user_data)
 {
@@ -111,6 +126,10 @@ handle_events (gpointer user_data)
                     g_idle_add ((GSourceFunc) headphone_present, data->self);
                 } else {
                     g_idle_add ((GSourceFunc) headphone_absent, data->self);
+                }
+            } else if (input_data.code == KEY_MEDIA) {
+                if (input_data.value) {
+                    g_idle_add ((GSourceFunc) key_pressed, data->self);
                 }
             }
         }
@@ -157,7 +176,14 @@ scan_devices(Events *self)
 
         if (test_bit(EV_SW, bit[0])) {
             ioctl(fd, EVIOCGBIT(EV_SW, KEY_MAX), bit[EV_SW]);
-            if (test_bit(SW_HEADPHONE_INSERT, bit[EV_SW])) {
+            if (test_bit (SW_HEADPHONE_INSERT, bit[EV_SW])) {
+                devices = g_list_append (
+                    devices, g_strdup (fname)
+                );
+            }
+        } else if (test_bit (EV_KEY, bit[0])) {
+            ioctl(fd, EVIOCGBIT(EV_KEY, KEY_MAX), bit[EV_KEY]);
+            if (test_bit (KEY_MEDIA, bit[EV_KEY])) {
                 devices = g_list_append (
                     devices, g_strdup (fname)
                 );
@@ -217,6 +243,16 @@ events_class_init (EventsClass *klass)
         G_TYPE_NONE,
         1,
         G_TYPE_BOOLEAN
+    );
+
+    signals[MEDIA_KEY_PRESSED] = g_signal_new (
+        "media-key-pressed",
+        G_OBJECT_CLASS_TYPE (object_class),
+        G_SIGNAL_RUN_LAST,
+        0,
+        NULL, NULL, NULL,
+        G_TYPE_NONE,
+        0
     );
 }
 
