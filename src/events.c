@@ -65,6 +65,8 @@ headphone_present (gpointer user_data)
         TRUE
     );
 
+    g_debug ("Headphone connected");
+
     return FALSE;
 }
 
@@ -80,6 +82,8 @@ headphone_absent (gpointer user_data)
         FALSE
     );
 
+    g_debug ("Headphone removed");
+
     return FALSE;
 }
 
@@ -93,6 +97,8 @@ key_pressed (gpointer user_data)
         signals[MEDIA_KEY_PRESSED],
         0
     );
+
+    g_debug ("Media key pressed signal");
 
     return FALSE;
 }
