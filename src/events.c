@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <linux/input.h>
 #include <sys/types.h>
+#include <sys/eventfd.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <poll.h>
@@ -19,6 +20,8 @@
 
 #define DEV_INPUT_EVENT "/dev/input"
 #define EVENT_DEV_NAME "event"
+
+#define POLL_MAX 10
 
 #define BITS_PER_LONG (sizeof(long) * 8)
 #define NBITS(x) ((((x) - 1) / BITS_PER_LONG) + 1)
@@ -36,14 +39,18 @@ enum
 
 static guint signals[LAST_SIGNAL];
 
-struct thread_data {
-    char *device;
-    Events *self;
+struct poll_data {
+    struct pollfd fds[POLL_MAX+1];
+    char *device[POLL_MAX+1];
 };
 
 struct _EventsPrivate {
-    GList *threads;
-    GList *fds;
+    GHashTable *events;
+    struct poll_data *pd;
+    guint watched_fds;
+    GThread *thread;
+    GMutex mutex;
+    gboolean closing;
 };
 
 G_DEFINE_TYPE_WITH_CODE (
@@ -103,46 +110,150 @@ key_pressed (gpointer user_data)
     return FALSE;
 }
 
-static gpointer
-handle_events (gpointer user_data)
+static void
+events_add_device (Events *self, const char *device)
 {
-    struct thread_data *data = user_data;
-    struct pollfd fds;
-    const int input_size = sizeof(struct input_event);
-    struct input_event input_data;
+    guint64 refresh = 1;
+    guint next_device;
 
-    fds.fd = open (data->device, O_RDONLY | O_NONBLOCK);
+    g_mutex_lock (&self->priv->mutex);
+    next_device = self->priv->watched_fds;
 
-    if (fds.fd < 0)
-        goto free;
+    if (next_device <= POLL_MAX) {
+        g_debug ("Adding %s as device %d", device, next_device);
+        self->priv->pd->fds[next_device].fd = open (device, O_RDONLY | O_NONBLOCK);
 
-    data->self->priv->fds = g_list_append (data->self->priv->fds, GINT_TO_POINTER (fds.fd));
+        if (self->priv->pd->fds[next_device].fd < 0) {
+            g_warning ("Unable to open %s. Device will not be watched.", device);
+        } else {
+            self->priv->pd->fds[next_device].events = POLLIN;
+            self->priv->pd->device[next_device] = g_strdup (device);
+            self->priv->watched_fds++;
+        }
+    } else {
+        g_warning ("Reached maximum polled device number: %d", POLL_MAX);
+    }
 
-    fds.events = POLLIN;
+    g_mutex_unlock (&self->priv->mutex);
 
-    while (TRUE) {
-        poll(&fds, 1, -1);
+    /* Signal a change to the thread */
+    write(self->priv->pd->fds[0].fd, &refresh, sizeof(refresh));
+}
 
-        if(fds.revents) {
-            if (read (fds.fd, &input_data, input_size) < 0)
-                goto free;
+static void
+events_remove_device_by_id (Events   *self,
+                            guint     id,
+                            gboolean  update)
+{
+    struct poll_data *new_pd;
+    int old_counter;
+    g_debug ("Removing fd for device %d", id);
+    close (self->priv->pd->fds[id].fd);
+    g_free (self->priv->pd->device[id]);
 
-            if (input_data.code == SW_HEADPHONE_INSERT) {
-                if (input_data.value) {
-                    g_idle_add ((GSourceFunc) headphone_present, data->self);
-                } else {
-                    g_idle_add ((GSourceFunc) headphone_absent, data->self);
-                }
-            } else if (input_data.code == KEY_MEDIA) {
-                if (input_data.value) {
-                    g_idle_add ((GSourceFunc) key_pressed, data->self);
-                }
+    if (update) {
+        /* Refresh the poll_data without the device we removed */
+        new_pd = g_new0 (struct poll_data, 1);
+        old_counter = 0;
+        for (int i=0; i < self->priv->watched_fds; i++) {
+            if (i == id) {
+                old_counter++;
+                continue;
             }
+
+            new_pd->fds[i] = self->priv->pd->fds[old_counter];
+            new_pd->device[i] = self->priv->pd->device[old_counter];
+            old_counter++;
+        }
+        g_free (self->priv->pd);
+        self->priv->pd = new_pd;
+    }
+
+    self->priv->watched_fds--;
+}
+
+static void
+events_remove_device (Events *self, const char *device)
+{
+    gboolean freed = FALSE;
+    guint64 refresh = 1;
+
+    g_mutex_lock (&self->priv->mutex);
+    for (int i=1; i < self->priv->watched_fds; i++) {
+        if (g_strcmp0 (device, self->priv->pd->device[i]) == 0) {
+            g_debug ("Removing device %s", device);
+            events_remove_device_by_id (self, i, TRUE);
+            freed = TRUE;
+            break;
         }
     }
 
-free:
-    g_free (data->device);
+    g_mutex_unlock (&self->priv->mutex);
+    if (freed) {
+        write(self->priv->pd->fds[0].fd, &refresh, sizeof(refresh));
+    }
+}
+
+static void
+events_cleanup (Events *self)
+{
+    guint64 refresh = 1;
+    g_mutex_lock (&self->priv->mutex);
+    for (int i=1; i < self->priv->watched_fds; i++) {
+        events_remove_device_by_id (self, i, FALSE);
+    }
+
+    self->priv->closing = TRUE;
+    g_mutex_unlock (&self->priv->mutex);
+    write(self->priv->pd->fds[0].fd, &refresh, sizeof(refresh));
+}
+
+static gpointer
+handle_events (gpointer user_data)
+{
+    Events *self = user_data;
+    const int input_size = sizeof(struct input_event);
+    struct input_event input_data;
+
+    while (poll(self->priv->pd->fds, self->priv->watched_fds, -1) > 0) {
+        if (self->priv->pd->fds[0].revents & POLLIN) {
+            /* Signal eventfd */
+            guint64 refresh;
+            eventfd_read (self->priv->pd->fds[0].fd, &refresh);
+
+            if (self->priv->closing) {
+                close (self->priv->pd->fds[0].fd);
+                return NULL;
+            } else {
+                continue;
+            }
+        }
+
+        for (int i=1; i < self->priv->watched_fds; i++) {
+            if (self->priv->pd->fds[i].revents & POLLIN) {
+                if (read (self->priv->pd->fds[i].fd, &input_data, input_size) < 0) {
+                    events_remove_device (self, self->priv->pd->device[i]);
+                    break;
+                }
+
+                if (input_data.code == SW_HEADPHONE_INSERT) {
+                    if (input_data.value) {
+                        g_idle_add ((GSourceFunc) headphone_present, self);
+                    } else {
+                        g_idle_add ((GSourceFunc) headphone_absent, self);
+                    }
+                } else if (input_data.code == KEY_MEDIA || input_data.code == KEY_PLAYPAUSE) {
+                    if (input_data.value) {
+                        g_debug ("%s: key pressed: %d", self->priv->pd->device[i], input_data.code);
+                        g_idle_add ((GSourceFunc) key_pressed, self);
+                    }
+                }
+            } else if (self->priv->pd->fds[i].revents & POLLNVAL || self->priv->pd->fds[i].revents & POLLERR) {
+                events_remove_device (self, self->priv->pd->device[i]);
+                break;
+            }
+        }
+    }
 
     return NULL;
 }
@@ -213,20 +324,14 @@ static void
 events_finalize (GObject *events)
 {
     Events *self = EVENTS (events);
-    GThread *thread;
-    int *fd;
 
-    GFOREACH (self->priv->fds, fd) {
-        close (*fd);
-        g_free (fd);
-    }
-    g_list_free (self->priv->fds);
 
-    GFOREACH (self->priv->threads, thread) {
-        g_thread_join (thread);
-        g_thread_unref (thread);
-    }
-    g_list_free (self->priv->threads);
+    events_cleanup (self);
+    g_thread_join (self->priv->thread);
+    g_thread_unref (self->priv->thread);
+
+    g_free (self->priv->pd);
+    g_mutex_clear (&self->priv->mutex);
 
     G_OBJECT_CLASS (events_parent_class)->finalize (events);
 }
@@ -260,6 +365,7 @@ events_class_init (EventsClass *klass)
         G_TYPE_NONE,
         0
     );
+
 }
 
 static void
@@ -269,20 +375,16 @@ events_init (Events *self)
     const char *device;
 
     self->priv = events_get_instance_private (self);
-    self->priv->fds = NULL;
-    self->priv->threads = NULL;
+    g_mutex_init (&self->priv->mutex);
+    self->priv->pd = g_new0 (struct poll_data, 1);
+    self->priv->pd->fds[0].fd = eventfd (0, EFD_NONBLOCK);
+    self->priv->pd->fds[0].events = POLLIN;
+    self->priv->watched_fds = 1;
+    self->priv->closing = FALSE;
+    self->priv->thread = g_thread_new (NULL, (GThreadFunc) handle_events, self);
 
     GFOREACH (devices, device) {
-        struct thread_data *data = g_new0(struct thread_data, 1);
-        data->self = self;
-        data->device = g_strdup (device);
-
-        self->priv->threads = g_list_append (
-            self->priv->threads,
-            g_thread_new(
-                NULL, (GThreadFunc) handle_events, data
-            )
-        );
+        events_add_device (self, device);
     }
 
     g_list_free_full (devices, g_free);
