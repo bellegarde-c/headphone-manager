@@ -183,7 +183,7 @@ scan_devices(Events *self)
             }
         } else if (test_bit (EV_KEY, bit[0])) {
             ioctl(fd, EVIOCGBIT(EV_KEY, KEY_MAX), bit[EV_KEY]);
-            if (test_bit (KEY_MEDIA, bit[EV_KEY])) {
+            if (test_bit (KEY_MEDIA, bit[EV_KEY]) || test_bit (KEY_PLAYPAUSE, bit[EV_KEY])) {
                 devices = g_list_append (
                     devices, g_strdup (fname)
                 );
