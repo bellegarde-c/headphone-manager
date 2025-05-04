@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <poll.h>
+#include <gudev/gudev.h>
 
 #include "config.h"
 #include "events.h"
@@ -51,6 +52,7 @@ struct _EventsPrivate {
     GThread *thread;
     GMutex mutex;
     gboolean closing;
+    GUdevClient *udev_client;
 };
 
 G_DEFINE_TYPE_WITH_CODE (
@@ -315,6 +317,26 @@ scan_devices(Events *self)
 }
 
 static void
+on_uevent (GUdevClient *udev_client,
+           const gchar *action,
+           GUdevDevice *udev_device,
+           gpointer     user_data)
+{
+    Events *self = EVENTS (user_data);
+    const gchar *devname = g_udev_device_get_property (udev_device, "DEVNAME");
+
+    if (devname && g_str_has_prefix (devname, "/dev/input/event")) {
+        if (g_strcmp0(action, "add") == 0) {
+            events_add_device (self, devname);
+            g_idle_add ((GSourceFunc) headphone_present, self);
+        } else if (g_strcmp0(action, "remove") == 0) {
+            events_remove_device (self, devname);
+            g_idle_add ((GSourceFunc) headphone_absent, self);
+        }
+    }
+}
+
+static void
 events_dispose (GObject *events)
 {
     G_OBJECT_CLASS (events_parent_class)->dispose (events);
@@ -325,6 +347,7 @@ events_finalize (GObject *events)
 {
     Events *self = EVENTS (events);
 
+    g_clear_object (&self->priv->udev_client);
 
     events_cleanup (self);
     g_thread_join (self->priv->thread);
@@ -371,6 +394,7 @@ events_class_init (EventsClass *klass)
 static void
 events_init (Events *self)
 {
+    static const gchar *udev_subsystems[] = {"input", NULL};
     GList *devices = scan_devices (self);
     const char *device;
 
@@ -381,12 +405,15 @@ events_init (Events *self)
     self->priv->pd->fds[0].events = POLLIN;
     self->priv->watched_fds = 1;
     self->priv->closing = FALSE;
+    self->priv->udev_client = g_udev_client_new (udev_subsystems);
     self->priv->thread = g_thread_new (NULL, (GThreadFunc) handle_events, self);
 
     GFOREACH (devices, device) {
         events_add_device (self, device);
     }
 
+    g_signal_connect (self->priv->udev_client, "uevent",
+                      G_CALLBACK (on_uevent), self);
     g_list_free_full (devices, g_free);
 }
 
