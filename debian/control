@@ -8,6 +8,7 @@ Build-Depends:
  meson,
  libasound2-dev,
  libglib2.0-dev,
+ libgudev-1.0-dev,
 Standards-Version: 4.6.2
 Homepage: https://github.com/droidian/headphone-manager
 

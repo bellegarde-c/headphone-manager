@@ -11,7 +11,8 @@ headphone_manager_deps = [
   dependency('glib-2.0'),
   dependency('gio-2.0'),
   dependency('gio-unix-2.0'),
-  dependency('alsa')
+  dependency('alsa'),
+  dependency('gudev-1.0'),
 ]
 
 executable('headphone-manager', headphone_manager_sources,
