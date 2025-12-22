@@ -108,7 +108,9 @@ on_media_key_pressed (Events *events,
 {
     HeadphoneManager *self = HEADPHONE_MANAGER (user_data);
 
-    if (mpris_is_playing (self->priv->mpris)) {
+    if (g_settings_get_boolean(self->priv->settings, "button-next-track")) {
+        mpris_next (self->priv->mpris);
+    } else if (mpris_is_playing (self->priv->mpris)) {
         mpris_pause (self->priv->mpris);
     } else {
         mpris_play (self->priv->mpris);
@@ -207,3 +209,4 @@ headphone_manager_new (void)
 
     return headphone_manager;
 }
+

@@ -419,6 +419,7 @@ mpris_pause (Mpris *self)
  * Queue playback if player appears
  *
  * @self: a #Mpris
+ * @app_id: Application id
  *
  **/
 void
@@ -429,6 +430,50 @@ mpris_queue_play (Mpris      *self,
         g_free (self->priv->queue);
 
     self->priv->queue = g_strdup (app_id);
+}
+
+/**
+ * mpris_next:
+ *
+ * Play next track
+ *
+ * @self: a #Mpris
+ *
+ **/
+void
+mpris_next (Mpris *self)
+{
+    struct Player *player;
+
+    GFOREACH (self->priv->players, player) {
+        GVariant *value;
+        gboolean playing;
+
+        value = g_dbus_proxy_get_cached_property (
+            player->player_bus, "PlaybackStatus"
+        );
+
+        if (value == NULL)
+            continue;
+
+        playing = g_strcmp0 (
+            g_variant_get_string (value, NULL), "Playing"
+        ) == 0;
+        g_variant_unref (value);
+
+        if (playing) {
+            g_dbus_proxy_call (
+                player->player_bus,
+                "Next",
+                NULL,
+                G_DBUS_CALL_FLAGS_NONE,
+                -1,
+                NULL,
+                NULL,
+                NULL
+            );
+        }
+    }
 }
 
 /**

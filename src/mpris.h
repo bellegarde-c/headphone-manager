@@ -48,6 +48,7 @@ gboolean    mpris_play           (Mpris      *self);
 gboolean    mpris_pause          (Mpris      *self);
 void        mpris_queue_play     (Mpris      *self,
                                   const char *app_id);
+void        mpris_next           (Mpris      *self);
 void        mpris_quit           (Mpris      *self);
 gboolean    mpris_is_playing     (Mpris      *self);
 G_END_DECLS

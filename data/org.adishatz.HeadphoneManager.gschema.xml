@@ -20,5 +20,11 @@
       <description>When headphone is plugged, default audio player is launched.</description>
     </key>
 
+    <key name="button-next-track" type="b">
+      <default>false</default>
+      <summary>Go to next track on button press</summary>
+      <description>When headphone button is pressed, go to next track.</description>
+    </key>
+
   </schema>
 </schemalist>
