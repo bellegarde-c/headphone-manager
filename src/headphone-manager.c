@@ -104,8 +104,7 @@ on_headphone_state_changed (Events *events,
 
 static void
 on_media_key_pressed (Events *events,
-                            gboolean  connected,
-                            gpointer  user_data)
+                      gpointer  user_data)
 {
     HeadphoneManager *self = HEADPHONE_MANAGER (user_data);
 
